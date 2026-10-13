@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffe066">
+<title>Cuaca Kampus – Weather App</title>
+<style>
+:root{
+  --ink:#14110f;--paper:#fffaf0;--card:#fff;--shadow:#14110f;--mut:#5b544c;
+  --y:#ffe066;--p:#ff9ecb;--b:#8ecbff;--m:#9ef0c0;--o:#ffb36b;--v:#c4b5fd;
+  --hero:var(--y);--dark:#14110f;
+  --line:rgba(70,130,200,.18);--margin:rgba(255,90,90,.35);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+:root[data-theme="dark"]{
+  --ink:#f5efe3;--paper:#15131c;--card:#221f2e;--shadow:#000;--mut:#b7b0c4;
+  --line:rgba(255,255,255,.05);--margin:rgba(255,120,120,.3);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;min-height:100vh;min-height:100dvh;color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(90deg,transparent 39px,var(--margin) 39px 41px,transparent 41px),
+    repeating-linear-gradient(transparent 0 27px,var(--line) 27px 28px);
+  padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(32px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  transition:background-color .3s;
+}
+body[data-sky="clear"]{--hero:#ffe066}
+body[data-sky="clouds"]{--hero:#cfe3f5}
+body[data-sky="rain"]{--hero:#8ecbff}
+body[data-sky="storm"]{--hero:#c4b5fd}
+body[data-sky="snow"]{--hero:#e6f4ff}
+body[data-sky="mist"]{--hero:#d9d6cf}
+body[data-night="1"][data-sky="clear"]{--hero:#a5b4fc}
+body[data-night="1"][data-sky="clouds"]{--hero:#aab6cf}
+
+.app{max-width:460px;margin:0 auto;display:grid;gap:16px}
+.hidden{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* komponen dasar */
+.box{background:var(--card);border:2.5px solid var(--ink);border-radius:18px;box-shadow:5px 5px 0 var(--shadow)}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,input:focus-visible{outline:3px solid var(--v);outline-offset:2px}
+.pop{transition:transform .1s,box-shadow .1s}
+.pop:hover{transform:translate(-1px,-1px);box-shadow:6px 6px 0 var(--shadow)}
+.pop:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--shadow)}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.title{display:inline-block;margin:0;padding:8px 16px;background:var(--y);color:var(--dark);border:2.5px solid var(--ink);border-radius:14px;box-shadow:4px 4px 0 var(--shadow);font-size:1.45rem;font-weight:900;letter-spacing:-.03em;transform:rotate(-2deg)}
+.theme{width:46px;height:46px;border-radius:14px;border:2.5px solid var(--ink);background:var(--card);box-shadow:3px 3px 0 var(--shadow);font-size:1.25rem}
+.greet{margin:0;font-size:.95rem;font-weight:600}
+.greet small{display:block;margin-top:2px;font-weight:500;color:var(--mut);font-size:.82rem}
+.demo{display:inline-block;margin-left:6px;padding:2px 8px;font-family:var(--mono);font-size:.68rem;font-weight:700;background:var(--p);color:var(--dark);border:2px solid var(--ink);border-radius:999px;vertical-align:2px}
+
+/* pencarian */
+.search{display:flex;gap:10px}
+.field{position:relative;flex:1;min-width:0;display:flex}
+input{width:100%;padding:14px 52px 14px 16px;font:inherit;font-size:1rem;font-weight:600;color:var(--ink);background:var(--card);border:2.5px solid var(--ink);border-radius:14px;box-shadow:4px 4px 0 var(--shadow);outline:none}
+input::placeholder{color:var(--mut);font-weight:500}
+input:focus{box-shadow:4px 4px 0 var(--v)}
+.loc{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:10px;border:2px solid var(--ink);background:var(--b);color:var(--dark);font-size:1rem}
+.go{padding:0 20px;border-radius:14px;border:2.5px solid var(--ink);background:var(--p);color:var(--dark);font-weight:900;font-size:1rem;box-shadow:4px 4px 0 var(--shadow)}
+
+/* chip */
+.chips-wrap{display:grid;gap:8px}
+.chips-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:.76rem;font-weight:700}
+.link{background:none;border:0;padding:2px 4px;font-family:var(--mono);font-size:.76rem;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:7px 14px;border:2px solid var(--ink);border-radius:999px;background:var(--m);color:var(--dark);font-weight:700;font-size:.88rem;box-shadow:2px 2px 0 var(--shadow)}
+.chip.h{background:var(--card);color:var(--ink)}
+.chip:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--shadow)}
+
+/* status */
+.state{padding:22px 18px;text-align:center;display:grid;gap:8px;justify-items:center}
+.state .big{font-size:3rem;line-height:1}
+.state h2{margin:0;font-size:1.2rem;font-weight:900}
+.state p{margin:0;font-size:.9rem;color:var(--mut);font-weight:500}
+.alert{background:var(--p);color:var(--dark);padding:14px 16px;font-weight:700;font-size:.93rem}
+.dots span{display:inline-block;width:12px;height:12px;margin:0 3px;border:2px solid var(--ink);border-radius:50%;background:var(--y);animation:hop .8s ease-in-out infinite}
+.dots span:nth-child(2){background:var(--p);animation-delay:.12s}
+.dots span:nth-child(3){background:var(--b);animation-delay:.24s}
+@keyframes hop{50%{transform:translateY(-12px)}}
+
+/* hasil */
+#result{display:grid;gap:16px}
+#result.enter>*{animation:rise .45s cubic-bezier(.2,.9,.3,1.3) both}
+#result.enter>*:nth-child(2){animation-delay:.06s}
+#result.enter>*:nth-child(3){animation-delay:.12s}
+#result.enter>*:nth-child(4){animation-delay:.18s}
+@keyframes rise{from{opacity:0;transform:translateY(18px) rotate(-1deg)}}
+
+.hero{background:var(--hero);color:var(--dark);padding:18px;transition:background-color .5s}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.hero h2{margin:0;font-size:1.55rem;font-weight:900;letter-spacing:-.03em;line-height:1.15}
+.when{margin:4px 0 0;font-family:var(--mono);font-size:.76rem;font-weight:700;opacity:.8}
+.seg{display:flex;border:2.5px solid var(--dark);border-radius:12px;overflow:hidden;flex-shrink:0;background:#fff}
+.seg button{border:0;background:#fff;color:var(--dark);padding:7px 11px;font-weight:800;font-size:.88rem}
+.seg button[aria-pressed="true"]{background:var(--dark);color:#fff}
+.hero-main{display:flex;align-items:center;gap:14px;margin:12px 0}
+.emoji{font-size:5.4rem;line-height:1;animation:bob 3.2s ease-in-out infinite;filter:drop-shadow(3px 4px 0 rgba(0,0,0,.25))}
+@keyframes bob{50%{transform:translateY(-8px) rotate(4deg)}}
+.temp{margin:0;font-size:4.2rem;line-height:.95;font-weight:900;letter-spacing:-.05em}
+.desc{margin:6px 0 2px;font-weight:800;font-size:1.05rem;text-transform:capitalize}
+.hilo{margin:0;font-family:var(--mono);font-size:.82rem;font-weight:700}
+.bubble{position:relative;margin:4px 0 0;padding:11px 14px;background:#fff;border:2.5px solid var(--dark);border-radius:14px;font-weight:700;font-size:.92rem;line-height:1.4}
+.bubble::before{content:"";position:absolute;top:-10px;left:26px;width:16px;height:16px;background:#fff;border-left:2.5px solid var(--dark);border-top:2.5px solid var(--dark);transform:rotate(45deg)}
+
+.sec-title{margin:0 0 10px;display:inline-block;padding:3px 12px;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:.78rem;font-weight:800;border-radius:8px;transform:rotate(-1.5deg)}
+.advice{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{padding:12px 12px 14px;color:var(--dark);display:grid;gap:4px;align-content:start}
+.tile .ic{font-size:1.7rem;line-height:1}
+.tile .q{font-family:var(--mono);font-size:.7rem;font-weight:800;opacity:.75;text-transform:uppercase;letter-spacing:.03em}
+.tile strong{font-size:1rem;font-weight:900;line-height:1.2}
+.tile p{margin:0;font-size:.82rem;font-weight:600;line-height:1.35}
+.tile.good{background:var(--m)}.tile.warn{background:var(--y)}.tile.bad{background:var(--p)}
+
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.slot{padding:12px 6px;text-align:center;display:grid;gap:3px;color:var(--dark);background:var(--card);color:var(--ink)}
+.slot .l{font-size:.72rem;font-weight:800;line-height:1.2}
+.slot .t{font-family:var(--mono);font-size:.7rem;color:var(--mut);font-weight:700}
+.slot .e{font-size:1.8rem;line-height:1.2}
+.slot .d{font-size:1.1rem;font-weight:900}
+
+.pills{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pill{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 14px;font-weight:700;font-size:.88rem;box-shadow:3px 3px 0 var(--shadow);border-radius:14px}
+.pill span{color:var(--mut);font-weight:600}
+
+footer{text-align:center;font-family:var(--mono);font-size:.72rem;font-weight:700;color:var(--mut)}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body data-sky="clear" data-night="0">
+<main class="app">
+
+  <header class="top">
+    <h1 class="title">🎒 Cuaca Kampus</h1>
+    <button type="button" id="themeBtn" class="theme pop" aria-label="Ganti tema terang/gelap" title="Ganti tema">🌙</button>
+  </header>
+
+  <p class="greet" id="greet"><span id="greetText"></span><span id="demoTag" class="demo hidden">MODE DEMO</span><small>Cek dulu cuacanya sebelum berangkat kuliah.</small></p>
+
+  <form id="searchForm" class="search" role="search" novalidate>
+    <div class="field">
+      <label class="sr" for="cityInput">Nama kota</label>
+      <input type="text" id="cityInput" placeholder="Cari kota, mis. Medan…" autocomplete="off" maxlength="60" enterkeyhint="search">
+      <button type="button" id="locateBtn" class="loc pop" aria-label="Pakai lokasi saya" title="Lokasi saya">📍</button>
+    </div>
+    <button type="submit" class="go pop">Cek!</button>
+  </form>
+
+  <section id="historyWrap" class="chips-wrap hidden" aria-label="Riwayat pencarian">
+    <div class="chips-head"><span>🕘 TERAKHIR DICARI</span><button type="button" id="clearHistory" class="link">hapus</button></div>
+    <div id="history" class="chips"></div>
+  </section>
+
+  <section id="status" aria-live="polite" aria-busy="false">
+    <div id="loading" class="box state hidden"><div class="dots" aria-hidden="true"><span></span><span></span><span></span></div><h2>Lagi ngecek langit…</h2></div>
+    <div id="error" class="box alert hidden" role="alert"></div>
+  </section>
+
+  <section id="welcome" class="box state">
+    <div class="big" aria-hidden="true">☂️</div>
+    <h2>Mau ke kampus hari ini?</h2>
+    <p>Ketik nama kotamu, atau pilih salah satu dulu.</p>
+    <div id="suggestions" class="chips" style="justify-content:center"></div>
+  </section>
+
+  <article id="result" class="hidden" aria-live="polite">
+    <section class="box hero">
+      <div class="hero-top">
+        <div><h2 id="cityName"></h2><p class="when" id="when"></p></div>
+        <div class="seg" id="unitSeg" role="group" aria-label="Satuan suhu">
+          <button type="button" data-unit="C" aria-pressed="true">°C</button>
+          <button type="button" data-unit="F" aria-pressed="false">°F</button>
+        </div>
+      </div>
+      <div class="hero-main">
+        <div class="emoji" id="emoji" aria-hidden="true"></div>
+        <div><p class="temp" id="temp"></p><p class="desc" id="desc"></p><p class="hilo" id="hilo"></p></div>
+      </div>
+      <p class="bubble" id="mood"></p>
+    </section>
+
+    <section aria-labelledby="advTitle">
+      <h3 class="sec-title" id="advTitle">// SARAN HARI INI</h3>
+      <div class="advice" id="advice"></div>
+    </section>
+
+    <section id="slotsWrap" aria-labelledby="slotTitle">
+      <h3 class="sec-title" id="slotTitle">// JADWAL KULIAH</h3>
+      <div class="slots" id="slots"></div>
+    </section>
+
+    <section class="pills" aria-label="Detail cuaca">
+      <div class="box pill"><span>🌡️ Terasa</span><b id="feels"></b></div>
+      <div class="box pill"><span>💧 Lembap</span><b id="humidity"></b></div>
+      <div class="box pill"><span>💨 Angin</span><b id="wind"></b></div>
+      <div class="box pill"><span>👁️ Jarak pandang</span><b id="vis"></b></div>
+    </section>
+  </article>
+
+  <footer id="footer">data: OpenWeatherMap · dibuat dengan ☕</footer>
+</main>
+
+<script>
+'use strict';
+
+// ====== KONFIGURASI ======
+// Ganti dengan API key OpenWeatherMap kamu. Selama masih 'YOUR_API_KEY_HERE',
+// aplikasi berjalan dalam MODE DEMO memakai data contoh (tanpa internet).
+const API_KEY = 'YOUR_API_KEY_HERE';
+const API = 'https://api.openweathermap.org/data/2.5';
+const DEMO = API_KEY === 'YOUR_API_KEY_HERE';
+const HISTORY_KEY = 'weather-history';
+const UNIT_KEY = 'weather-unit';
+const THEME_KEY = 'weather-theme';
+
+// ====== DATA CONTOH (mode demo) ======
+const localToUnix = (hhmm, tz) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  const d = new Date();
+  const midnightUtc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return Math.floor((midnightUtc + (h * 60 + m) * 60000) / 1000 - tz);
+};
+// pmRain = true: sore hari sering hujan (khas kota tropis)
+const mk = (name, country, tz, temp, feels, min, max, hum, desc, icon, wind, pres, vis, clouds, rise, set, pmRain = false) => ({
+  name, timezone: tz, pmRain,
+  sys: { country, sunrise: localToUnix(rise, tz), sunset: localToUnix(set, tz) },
+  main: { temp, feels_like: feels, temp_min: min, temp_max: max, humidity: hum, pressure: pres },
+  weather: [{ description: desc, icon }],
+  wind: { speed: wind }, visibility: vis, clouds: { all: clouds },
+});
+const MOCK = {
+  'medan':     mk('Medan', 'ID', 25200, 31.5, 36.2, 26.0, 33.8, 75, 'berawan', '02d', 3.5, 1009, 9000, 40, '06:05', '18:12', true),
+  'jakarta':   mk('Jakarta', 'ID', 25200, 32.1, 37.5, 26.4, 34.2, 70, 'cerah berawan', '03d', 4.1, 1008, 8000, 45, '05:50', '17:55', true),
+  'bandung':   mk('Bandung', 'ID', 25200, 26.0, 27.8, 21.5, 27.4, 82, 'hujan ringan', '10d', 2.2, 1011, 6000, 85, '05:45', '17:50'),
+  'surabaya':  mk('Surabaya', 'ID', 25200, 33.0, 38.1, 26.9, 34.5, 66, 'cerah', '01d', 3.0, 1008, 10000, 5, '05:30', '17:40'),
+  'yogyakarta':mk('Yogyakarta', 'ID', 25200, 29.2, 32.0, 23.8, 31.0, 74, 'cerah berawan', '02d', 2.4, 1010, 10000, 30, '05:35', '17:48', true),
+  'bali':      mk('Bali', 'ID', 28800, 29.8, 33.9, 25.2, 31.0, 78, 'cerah berawan', '02d', 2.8, 1010, 10000, 30, '06:00', '18:05'),
+  'singapore': mk('Singapore', 'SG', 28800, 30.4, 35.0, 25.8, 32.0, 79, 'badai petir', '11d', 5.2, 1007, 7000, 90, '07:05', '19:08'),
+  'tokyo':     mk('Tokyo', 'JP', 32400, 19.4, 18.1, 15.2, 22.0, 60, 'cerah', '01d', 5.0, 1018, 10000, 5, '05:40', '17:15'),
+  'london':    mk('London', 'GB', 3600, 12.5, 10.9, 9.8, 14.1, 81, 'kabut tipis', '50d', 3.1, 1015, 3000, 75, '07:10', '18:05'),
+};
+const SUGGESTIONS = ['Medan', 'Jakarta', 'Bandung', 'Yogyakarta', 'Surabaya', 'Bali'];
+
+// ====== KONSTANTA ======
+const SKY = { '01': 'clear', '02': 'clouds', '03': 'clouds', '04': 'clouds', '09': 'rain', '10': 'rain', '11': 'storm', '13': 'snow', '50': 'mist' };
+const COMPASS = ['U', 'TL', 'T', 'TG', 'S', 'BD', 'B', 'BL'];
+const SLOTS = [
+  { label: 'Kelas pagi', hour: 7 },
+  { label: 'Kelas siang', hour: 13 },
+  { label: 'Pulang sore', hour: 17 },
+];
+const weatherEmoji = (code, night) => ({
+  '01': night ? '🌙' : '☀️', '02': night ? '☁️' : '🌤️', '03': night ? '☁️' : '⛅', '04': '☁️',
+  '09': '🌧️', '10': night ? '🌧️' : '🌦️', '11': '⛈️', '13': '❄️', '50': '🌫️',
+}[code] ?? '🌡️');
+const isRain = (code) => ['09', '10', '11'].includes(code);
+
+// ====== DOM ======
+const $ = (sel) => document.querySelector(sel);
+const form = $('#searchForm');
+const input = $('#cityInput');
+const els = {
+  loading: $('#loading'), error: $('#error'), result: $('#result'), welcome: $('#welcome'), status: $('#status'),
+  historyWrap: $('#historyWrap'), history: $('#history'), suggestions: $('#suggestions'),
+};
+const makeEl = (tag, className, text) => {
+  const n = document.createElement(tag);
+  if (className) n.className = className;
+  if (text !== undefined) n.textContent = text;
+  return n;
+};
+
+// ====== STORAGE & STATE ======
+const mem = {};
+const store = {
+  get(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return mem[key] ?? fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { mem[key] = value; }
+  },
+};
+const state = { unit: store.get(UNIT_KEY, 'C') === 'F' ? 'F' : 'C', data: null, forecast: [] };
+let requestId = 0;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ====== FORMAT ======
+const toUnit = (c) => (state.unit === 'C' ? c : (c * 9) / 5 + 32);
+const fmtDeg = (c) => `${Math.round(toUnit(c))}°`;
+const minuteOfDay = (unix, tz) => ((((unix + tz) % 86400) + 86400) % 86400) / 60;
+const fmtTime = (unix, tz) => {
+  const m = Math.floor(minuteOfDay(unix, tz));
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}.${String(m % 60).padStart(2, '0')}`;
+};
+const fmtDate = (unix, tz) =>
+  new Date((unix + tz) * 1000).toLocaleDateString('id-ID', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' });
+const compass = (deg) => (typeof deg === 'number' ? COMPASS[Math.round(deg / 45) % 8] : '');
+
+// ====== NORMALISASI ======
+const normalize = (raw) => {
+  const [w] = raw.weather;
+  const dt = raw.dt ?? Math.floor(Date.now() / 1000);
+  const tz = raw.timezone ?? 0;
+  const { sunrise, sunset, country = '' } = raw.sys ?? {};
+  const night = sunrise && sunset
+    ? minuteOfDay(dt, tz) < minuteOfDay(sunrise, tz) || minuteOfDay(dt, tz) > minuteOfDay(sunset, tz)
+    : w.icon.endsWith('n');
+  return {
+    name: raw.name, country, tz, night,
+    temp: raw.main.temp, feels: raw.main.feels_like, min: raw.main.temp_min, max: raw.main.temp_max,
+    humidity: raw.main.humidity, visibility: raw.visibility ?? null,
+    windSpeed: raw.wind?.speed ?? 0, windDeg: raw.wind?.deg,
+    clouds: raw.clouds?.all ?? 0,
+    desc: w.description, code: w.icon.slice(0, 2),
+  };
+};
+
+// ====== FETCH ======
+const mockForecast = (raw) => {
+  const now = Math.floor(Date.now() / 1000);
+  const hourOf = (t) => minuteOfDay(t, raw.timezone) / 60;
+  const swing = (h) => Math.sin(((h - 9) / 24) * 2 * Math.PI) * 3.5;
+  const baseCode = raw.weather[0].icon.slice(0, 2);
+  return Array.from({ length: 8 }, (_, i) => {
+    const dt = now + (i + 1) * 3 * 3600;
+    const h = hourOf(dt);
+    const afternoonRain = raw.pmRain && h >= 14 && h < 19;
+    return {
+      dt,
+      temp: raw.main.temp + swing(h) - swing(hourOf(now)) - (afternoonRain ? 3 : 0),
+      code: afternoonRain ? '10' : baseCode,
+      night: h < 6 || h >= 18,
+    };
+  });
+};
+
+const request = async (url) => {
+  try { return await fetch(url); } catch { throw new Error('Gagal terhubung. Cek koneksi internetmu ya.'); }
+};
+
+const fetchWeather = async (q) => {
+  if (DEMO) {
+    await sleep(600);
+    if (!q.city) throw new Error('Fitur lokasi butuh API key asli. Di mode demo, ketik nama kota ya.');
+    const raw = MOCK[q.city.toLowerCase()];
+    if (!raw) throw new Error(`Kota “${q.city}” belum ada di mode demo. Coba: ${SUGGESTIONS.join(', ')}.`);
+    return { raw, forecast: mockForecast(raw) };
+  }
+  const query = q.city ? `q=${encodeURIComponent(q.city)}` : `lat=${q.lat}&lon=${q.lon}`;
+  const common = `${query}&appid=${API_KEY}&units=metric&lang=id`;
+  const [res, fres] = await Promise.all([
+    request(`${API}/weather?${common}`),
+    request(`${API}/forecast?${common}&cnt=8`).catch(() => null),
+  ]);
+  if (res.status === 404) throw new Error(`Kota “${q.city ?? 'ini'}” nggak ketemu. Cek ejaannya.`);
+  if (res.status === 401) throw new Error('API key tidak valid atau belum aktif.');
+  if (res.status === 429) throw new Error('Kebanyakan request. Tunggu sebentar ya.');
+  if (!res.ok) throw new Error('Server lagi bermasalah. Coba lagi nanti.');
+  const raw = await res.json();
+
+  let forecast = [];
+  try {
+    if (fres?.ok) {
+      const fj = await fres.json();
+      forecast = fj.list.map((it) => ({
+        dt: it.dt, temp: it.main.temp,
+        code: it.weather[0].icon.slice(0, 2), night: it.weather[0].icon.endsWith('n'),
+      }));
+    }
+  } catch { /* prakiraan opsional */ }
+  return { raw, forecast };
+};
+
+// ====== LOGIKA SARAN (inti fitur "anak kuliah") ======
+const advise = (d, forecast) => {
+  const rainNow = isRain(d.code);
+  const rainSoon = forecast.slice(0, 2).some((f) => isRain(f.code));
+  const storm = d.code === '11';
+  const f = d.feels;
+
+  // ☂️ Payung
+  let umbrella;
+  if (rainNow) umbrella = ['bad', 'Wajib bawa!', 'Lagi hujan. Bawa payung atau jas hujan.'];
+  else if (rainSoon) umbrella = ['warn', 'Sedia payung', 'Beberapa jam lagi kemungkinan hujan.'];
+  else if (d.clouds > 70) umbrella = ['warn', 'Jaga-jaga aja', 'Langit mendung, payung lipat boleh dibawa.'];
+  else umbrella = ['good', 'Aman, nggak perlu', 'Langit bersahabat, tas jadi lebih ringan.'];
+
+  // 👕 Outfit
+  let outfit;
+  if (f <= 18) outfit = ['warn', 'Pakai jaket', 'Dingin! Hoodie atau jaket almamater bisa kepakai.'];
+  else if (f <= 26) outfit = ['good', 'Santai aja', 'Kemeja atau kaos biasa sudah pas.'];
+  else if (f <= 33) outfit = ['good', 'Baju tipis', 'Cari yang adem dan menyerap keringat.'];
+  else outfit = ['bad', 'Panas banget!', 'Baju tipis, bawa botol minum, hindari jaket tebal.'];
+
+  // 🏍️ Motoran
+  let ride;
+  if (storm) ride = ['bad', 'Jangan dulu', 'Ada petir. Tunggu reda, ngopi dulu.'];
+  else if (rainNow) ride = ['bad', 'Licin, hati-hati', 'Pakai jas hujan dan jaga jarak.'];
+  else if (d.visibility != null && d.visibility < 3000) ride = ['warn', 'Jarak pandang pendek', 'Nyalakan lampu dan pelan-pelan.'];
+  else if (d.windSpeed > 8) ride = ['warn', 'Angin kencang', 'Pegang setang lebih erat.'];
+  else ride = ['good', 'Aman jalan', 'Kondisi jalan dan cuaca mendukung.'];
+
+  // 👚 Jemuran (buat anak kos)
+  let laundry;
+  if (d.night) laundry = ['warn', 'Sudah malam', 'Jemur besok pagi aja.'];
+  else if (rainNow || rainSoon) laundry = ['bad', 'Jangan dijemur', 'Bisa kehujanan. Pakai laundry atau angkat dulu.'];
+  else if (d.humidity < 75 && d.clouds < 60) laundry = ['good', 'Jemur sekarang', 'Cerah dan nggak terlalu lembap, cepat kering.'];
+  else laundry = ['warn', 'Agak lama keringnya', 'Lembap atau mendung, jemur di tempat berangin.'];
+
+  return [
+    { icon: '☂️', q: 'Bawa payung?', ...toObj(umbrella) },
+    { icon: '👕', q: 'Outfit ke kampus', ...toObj(outfit) },
+    { icon: '🏍️', q: 'Aman motoran?', ...toObj(ride) },
+    { icon: '👚', q: 'Jemur cucian?', ...toObj(laundry) },
+  ];
+};
+const toObj = ([level, title, text]) => ({ level, title, text });
+
+const moodLine = (d) => {
+  if (d.code === '11') return '⚡ Petir nih. Mending ngerjain tugas di kosan sambil nunggu reda.';
+  if (isRain(d.code)) return '🌧️ Cuaca paling cocok buat rebahan, ngopi, dan nyicil laporan.';
+  if (d.code === '13') return '❄️ Dingin banget. Pakai jaket dan cari minuman hangat!';
+  if (d.code === '50') return '🌫️ Berkabut. Jalan pelan-pelan, jangan lupa lampu motor.';
+  if (d.night) return '🌙 Malam hari. Waktunya review materi atau tidur cukup.';
+  if (d.temp >= 33) return '🥵 Panas parah. Cari ruangan ber-AC dan minum yang banyak.';
+  if (d.code === '01') return '🔥 Cerah banget! Semangat kelas hari ini.';
+  return '🎒 Cuacanya oke buat berangkat kuliah. Semangat!';
+};
+
+// ====== TAMPILAN ======
+const setView = (v) => {
+  els.loading.classList.toggle('hidden', v !== 'loading');
+  els.error.classList.toggle('hidden', v !== 'error');
+  els.result.classList.toggle('hidden', v !== 'result');
+  els.welcome.classList.toggle('hidden', v !== 'welcome');
+  els.status.setAttribute('aria-busy', String(v === 'loading'));
+};
+const showError = (msg) => { els.error.textContent = `⚠️ ${msg}`; setView('error'); };
+
+const renderClock = () => {
+  const d = state.data;
+  if (!d) return;
+  const now = Math.floor(Date.now() / 1000);
+  $('#when').textContent = `${fmtDate(now, d.tz)} · ${fmtTime(now, d.tz)}`;
+};
+
+const renderAdvice = () => {
+  const tiles = advise(state.data, state.forecast).map((a) => {
+    const t = makeEl('div', `box tile ${a.level}`);
+    t.append(makeEl('span', 'ic', a.icon), makeEl('span', 'q', a.q), makeEl('strong', '', a.title), makeEl('p', '', a.text));
+    return t;
+  });
+  $('#advice').replaceChildren(...tiles);
+};
+
+const renderSlots = () => {
+  const d = state.data;
+  $('#slotsWrap').classList.toggle('hidden', !state.forecast.length);
+  const pick = (hour) => state.forecast.reduce((best, f) => {
+    const h = minuteOfDay(f.dt, d.tz) / 60;
+    const diff = Math.min(Math.abs(h - hour), 24 - Math.abs(h - hour));
+    return !best || diff < best.diff ? { f, diff } : best;
+  }, null)?.f;
+  const cards = SLOTS.map((s) => {
+    const f = pick(s.hour);
+    const c = makeEl('div', 'box slot');
+    c.append(
+      makeEl('span', 'l', s.label),
+      makeEl('span', 't', `~${String(s.hour).padStart(2, '0')}.00`),
+      makeEl('span', 'e', f ? weatherEmoji(f.code, f.night) : '–'),
+      makeEl('span', 'd', f ? fmtDeg(f.temp) : '–'),
+    );
+    return c;
+  });
+  $('#slots').replaceChildren(...cards);
+};
+
+const renderTemps = () => {
+  const d = state.data;
+  if (!d) return;
+  $('#temp').textContent = `${Math.round(toUnit(d.temp))}°`;
+  $('#hilo').textContent = `↑${fmtDeg(d.max)}  ↓${fmtDeg(d.min)}`;
+  $('#feels').textContent = fmtDeg(d.feels);
+  renderSlots();
+};
+
+const render = () => {
+  const d = state.data;
+  document.body.dataset.sky = SKY[d.code] ?? 'clear';
+  document.body.dataset.night = d.night ? '1' : '0';
+  $('#cityName').textContent = d.country ? `${d.name}, ${d.country}` : d.name;
+  $('#emoji').textContent = weatherEmoji(d.code, d.night);
+  $('#desc').textContent = d.desc;
+  $('#mood').textContent = moodLine(d);
+  $('#humidity').textContent = `${d.humidity}%`;
+  $('#wind').textContent = `${Math.round(d.windSpeed * 3.6)} km/j ${compass(d.windDeg)}`.trim();
+  $('#vis').textContent = d.visibility == null ? '–' : `${(d.visibility / 1000).toFixed(d.visibility >= 10000 ? 0 : 1)} km`;
+  renderTemps();
+  renderAdvice();
+  renderClock();
+};
+
+// ====== RIWAYAT & SARAN ======
+const renderChips = (box, list, cls = '', prefix = '') => {
+  box.replaceChildren(...list.map((city) => {
+    const b = makeEl('button', `chip pop ${cls}`, `${prefix}${city}`);
+    b.type = 'button';
+    b.dataset.city = city;
+    return b;
+  }));
+};
+const renderHistory = () => {
+  const list = store.get(HISTORY_KEY, []);
+  els.historyWrap.classList.toggle('hidden', !list.length);
+  renderChips(els.history, list, 'h', '🕘 ');
+};
+const saveHistory = (name) => {
+  const list = [name, ...store.get(HISTORY_KEY, []).filter((c) => c.toLowerCase() !== name.toLowerCase())].slice(0, 5);
+  store.set(HISTORY_KEY, list);
+  renderHistory();
+};
+
+// ====== ALUR UTAMA ======
+const load = async (query) => {
+  const id = ++requestId; // abaikan respons lama
+  setView('loading');
+  try {
+    const { raw, forecast } = await fetchWeather(query);
+    if (id !== requestId) return;
+    state.data = normalize(raw);
+    state.forecast = forecast;
+    render();
+    saveHistory(raw.name);
+    setView('result');
+    els.result.classList.remove('enter');
+    void els.result.offsetWidth;
+    els.result.classList.add('enter');
+  } catch (err) {
+    if (id !== requestId) return;
+    showError(err.message || 'Ups, ada yang error.');
+  }
+};
+const searchCity = (city) => { input.value = city; load({ city }); };
+
+// ====== EVENT ======
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const city = input.value.trim();
+  if (!city) { showError('Isi nama kotanya dulu ya.'); input.focus(); return; }
+  searchCity(city);
+  input.blur();
+});
+
+[els.history, els.suggestions].forEach((box) =>
+  box.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-city]');
+    if (chip && box.contains(chip)) searchCity(chip.dataset.city);
+  }),
+);
+
+$('#clearHistory').addEventListener('click', () => { store.set(HISTORY_KEY, []); renderHistory(); });
+
+const syncUnit = () => document.querySelectorAll('#unitSeg button')
+  .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.unit === state.unit)));
+$('#unitSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-unit]');
+  if (!b) return;
+  state.unit = b.dataset.unit;
+  store.set(UNIT_KEY, state.unit);
+  syncUnit();
+  renderTemps();
+});
+
+$('#locateBtn').addEventListener('click', () => {
+  if (DEMO) return showError('Fitur lokasi butuh API key asli. Di mode demo, ketik nama kota ya.');
+  if (!navigator.geolocation) return showError('Browsermu tidak mendukung geolokasi.');
+  setView('loading');
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => load({ lat: coords.latitude, lon: coords.longitude }),
+    (err) => showError(err.code === 1 ? 'Izin lokasi ditolak.' : 'Lokasimu tidak bisa ditemukan.'),
+    { timeout: 10000, maximumAge: 300000 },
+  );
+});
+
+// tema terang/gelap
+const applyTheme = (t) => {
+  document.documentElement.dataset.theme = t;
+  $('#themeBtn').textContent = t === 'dark' ? '☀️' : '🌙';
+  $('meta[name="theme-color"]').content = t === 'dark' ? '#15131c' : '#ffe066';
+};
+$('#themeBtn').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  store.set(THEME_KEY, next);
+  applyTheme(next);
+});
+
+// ====== INIT ======
+const hr = new Date().getHours();
+const sapa = hr < 11 ? 'Selamat pagi' : hr < 15 ? 'Selamat siang' : hr < 18 ? 'Selamat sore' : 'Selamat malam';
+$('#greetText').textContent = `${sapa}, calon sarjana! 👋`;
+if (DEMO) {
+  $('#demoTag').classList.remove('hidden');
+  $('#footer').textContent = 'mode demo · data contoh, bukan cuaca sungguhan';
+}
+applyTheme(store.get(THEME_KEY, matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+renderChips(els.suggestions, SUGGESTIONS);
+syncUnit();
+renderHistory();
+setView('welcome');
+setInterval(renderClock, 15000);
+
+const last = store.get(HISTORY_KEY, [])[0];
+if (last) searchCity(last);
+</script>
+</body>
+</html>
